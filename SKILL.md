@@ -1,6 +1,6 @@
 ---
 name: venice-router
-version: 1.4.0
+version: 1.4.1
 description: Supreme model router for Venice.ai — the privacy-first, uncensored AI platform. Automatically classifies query complexity and routes to the cheapest adequate model. Supports web search, uncensored mode, private-only mode (zero data retention), conversation-aware routing, cost budgets, function calling, and 30+ Venice.ai text models. Use when the user wants to chat via Venice.ai, send prompts through Venice, or needs smart model selection to minimize API costs while keeping data private from Big Tech.
 homepage: https://venice.ai
 source: https://github.com/PlusOne/venice.ai-router-openclaw
