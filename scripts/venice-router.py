@@ -673,7 +673,7 @@ def venice_chat(
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        "User-Agent": "OpenClaw-VeniceRouter/1.2",
+        "User-Agent": "OpenClaw-VeniceRouter/1.2.1",
     }
 
     if stream:
