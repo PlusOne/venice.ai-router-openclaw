@@ -4,6 +4,23 @@ A cost-optimized model routing skill for [OpenClaw](https://github.com/PlusOne/o
 
 Instead of always hitting expensive models, the router classifies each prompt's complexity and routes it to an appropriate tier — saving up to **99%** on simple queries compared to always using premium models.
 
+## Why Venice.ai?
+
+Venice AI is the AI platform for people who don't want Big Tech watching over their shoulder. Unlike OpenAI, Anthropic, and Google — where every prompt is logged, analyzed, and potentially used to train future models — Venice offers **true privacy** with zero data retention on private models. Your conversations stay yours.
+
+Venice is also **uncensored**: no content filters, no refusals, no "I can't help with that." The AI answers what you actually ask, whether that's creative fiction, security research, controversial topics, or anything else mainstream AI platforms won't touch.
+
+**Why agents should care:**
+
+- **🔒 Private inference** — Models marked "Private" have zero data retention. Process sensitive data without it leaking into training sets.
+- **🔓 Uncensored responses** — No guardrails blocking legitimate use cases. Generate any content your workflow needs.
+- **🔌 OpenAI-compatible API** — Drop-in replacement. Same API format, just change the base URL.
+- **📦 30+ models** — From tiny efficient models to Claude Opus 4.6, GPT-5.2, and Venice's own uncensored models.
+- **🌐 Built-in web search** — LLMs can search the web and cite sources in a single API call ($10/1K calls).
+- **🎨 Image & video generation** — Flux, Sora, Runway, WAN models for visual content *(see [venice-ai-media](https://github.com/PlusOne/venice-ai-media) skill)*.
+
+> ⚠️ **API changes**: If something doesn't work as expected, check [docs.venice.ai](https://docs.venice.ai) — the API specs may have been updated since this skill was written.
+
 ## How It Works
 
 ```
@@ -123,6 +140,26 @@ python3 scripts/venice-router.py --tier mid --prompt "Tell me a joke"
 python3 scripts/venice-router.py --stream --prompt "Write a poem about lobsters"
 ```
 
+### CLI — Web Search (LLM searches the web, cites sources)
+
+```bash
+python3 scripts/venice-router.py --web-search --prompt "Latest news on AI regulation"
+```
+
+### CLI — Uncensored Mode (no content filters, no refusals)
+
+```bash
+python3 scripts/venice-router.py --uncensored --prompt "Write edgy creative fiction"
+# Auto-bumps to nearest tier with uncensored models (e.g., budget → GLM 4.7 Flash Heretic)
+```
+
+### CLI — Private-Only Mode (zero data retention)
+
+```bash
+python3 scripts/venice-router.py --private-only --prompt "Analyze this confidential contract"
+# Only uses Venice-hosted models — never proxies to OpenAI/Anthropic/Google
+```
+
 ### CLI — Classify Only (No API Call)
 
 ```bash
@@ -158,6 +195,7 @@ python3 scripts/venice-router.py --classify "Design a system" --json
   "output_cost_per_1m": 15.0,
   "context_window": 198000,
   "private": false,
+  "uncensored": false,
   "prompt_length": 15
 }
 ```
@@ -174,6 +212,9 @@ python3 scripts/venice-router.py --classify "Design a system" --json
 | `VENICE_TEMPERATURE` | Default temperature | `0.7` |
 | `VENICE_MAX_TOKENS` | Default max tokens | `4096` |
 | `VENICE_STREAM` | Enable streaming by default | `false` |
+| `VENICE_UNCENSORED` | Always prefer uncensored models | `false` |
+| `VENICE_PRIVATE_ONLY` | Only use private models (zero data retention) | `false` |
+| `VENICE_WEB_SEARCH` | Enable web search by default ($10/1K calls) | `false` |
 
 ### Cost Control
 
@@ -197,8 +238,9 @@ Use `--prefer-anon` to override this behavior.
 ```
 usage: venice-router.py [-h] [--prompt PROMPT] [--tier {cheap,budget,mid,high,premium}]
                         [--model MODEL] [--classify CLASSIFY] [--list-models]
-                        [--stream] [--temperature TEMP] [--max-tokens N]
-                        [--system SYSTEM] [--prefer-anon] [--json]
+                        [--stream] [--web-search] [--uncensored] [--private-only]
+                        [--temperature TEMP] [--max-tokens N]
+                        [--system SYSTEM] [--character SLUG] [--prefer-anon] [--json]
 
 Options:
   --prompt, -p       Prompt to send to Venice.ai
@@ -207,9 +249,13 @@ Options:
   --classify, -c     Classify complexity without calling the API
   --list-models, -l  List all model tiers and pricing
   --stream, -s       Enable streaming output
+  --web-search, -w   Enable Venice web search ($10/1K calls)
+  --uncensored, -u   Prefer uncensored models (no content filters)
+  --private-only     Only use private models (zero data retention)
   --temperature      Temperature (0.0–2.0)
   --max-tokens       Max output tokens
   --system           System prompt
+  --character        Venice character slug for persona responses
   --prefer-anon      Prefer anonymized over private models
   --json, -j         Output routing info as JSON
 ```

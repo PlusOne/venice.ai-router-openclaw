@@ -4,12 +4,18 @@ Venice.ai Supreme Router — cost-optimized model routing for OpenClaw.
 
 Classifies prompt complexity and routes to the cheapest Venice.ai model
 that can handle the task adequately. Supports streaming, tier overrides,
-and direct model selection.
+direct model selection, web search, and uncensored/private-only modes.
+
+Venice.ai is the AI platform for privacy and freedom — zero data retention
+on private models, no content filters, no refusals. OpenAI-compatible API.
 
 Usage:
     python3 venice-router.py --prompt "your question here"
     python3 venice-router.py --tier mid --prompt "explain recursion"
     python3 venice-router.py --stream --prompt "write a story"
+    python3 venice-router.py --web-search --prompt "latest news on X"
+    python3 venice-router.py --uncensored --prompt "creative fiction prompt"
+    python3 venice-router.py --private-only --prompt "sensitive data query"
     python3 venice-router.py --classify "your question"
     python3 venice-router.py --list-models
 """
@@ -33,57 +39,57 @@ MODEL_TIERS = {
     "cheap": {
         "description": "Simple Q&A, greetings, math, lookups",
         "models": [
-            {"id": "qwen3-4b",            "name": "Venice Small",        "input": 0.05,  "output": 0.15,  "ctx": 32000,   "private": True},
-            {"id": "openai-gpt-oss-120b",  "name": "GPT OSS 120B",       "input": 0.07,  "output": 0.30,  "ctx": 128000,  "private": True},
-            {"id": "zai-org-glm-4.7-flash","name": "GLM 4.7 Flash",      "input": 0.13,  "output": 0.50,  "ctx": 128000,  "private": True},
-            {"id": "llama-3.2-3b",         "name": "Llama 3.2 3B",        "input": 0.15,  "output": 0.60,  "ctx": 128000,  "private": True},
+            {"id": "qwen3-4b",            "name": "Venice Small",        "input": 0.05,  "output": 0.15,  "ctx": 32000,   "private": True,  "uncensored": False},
+            {"id": "openai-gpt-oss-120b",  "name": "GPT OSS 120B",       "input": 0.07,  "output": 0.30,  "ctx": 128000,  "private": True,  "uncensored": False},
+            {"id": "zai-org-glm-4.7-flash","name": "GLM 4.7 Flash",      "input": 0.13,  "output": 0.50,  "ctx": 128000,  "private": True,  "uncensored": False},
+            {"id": "llama-3.2-3b",         "name": "Llama 3.2 3B",        "input": 0.15,  "output": 0.60,  "ctx": 128000,  "private": True,  "uncensored": False},
         ],
         "default": "qwen3-4b",
     },
     "budget": {
         "description": "Moderate questions, summaries, translations",
         "models": [
-            {"id": "olafangensan-glm-4.7-flash-heretic", "name": "GLM 4.7 Flash Heretic", "input": 0.14, "output": 0.80, "ctx": 128000, "private": True},
-            {"id": "qwen3-235b-a22b-instruct-2507", "name": "Qwen 3 235B",  "input": 0.15,  "output": 0.75,  "ctx": 128000,  "private": True},
-            {"id": "venice-uncensored",    "name": "Venice Uncensored",   "input": 0.20,  "output": 0.90,  "ctx": 32000,   "private": True},
-            {"id": "qwen3-vl-235b-a22b",   "name": "Qwen3 VL 235B",      "input": 0.25,  "output": 1.50,  "ctx": 256000,  "private": True},
+            {"id": "olafangensan-glm-4.7-flash-heretic", "name": "GLM 4.7 Flash Heretic", "input": 0.14, "output": 0.80, "ctx": 128000, "private": True, "uncensored": True},
+            {"id": "qwen3-235b-a22b-instruct-2507", "name": "Qwen 3 235B",  "input": 0.15,  "output": 0.75,  "ctx": 128000,  "private": True,  "uncensored": False},
+            {"id": "venice-uncensored",    "name": "Venice Uncensored",   "input": 0.20,  "output": 0.90,  "ctx": 32000,   "private": True,  "uncensored": True},
+            {"id": "qwen3-vl-235b-a22b",   "name": "Qwen3 VL 235B",      "input": 0.25,  "output": 1.50,  "ctx": 256000,  "private": True,  "uncensored": False},
         ],
         "default": "qwen3-235b-a22b-instruct-2507",
     },
     "mid": {
         "description": "Code generation, analysis, longer writing",
         "models": [
-            {"id": "grok-code-fast-1",     "name": "Grok Code Fast",     "input": 0.25,  "output": 1.87,  "ctx": 256000,  "private": False},
-            {"id": "deepseek-v3.2",        "name": "DeepSeek V3.2",      "input": 0.40,  "output": 1.00,  "ctx": 160000,  "private": True},
-            {"id": "minimax-m21",          "name": "MiniMax M2.1",       "input": 0.40,  "output": 1.60,  "ctx": 198000,  "private": True},
-            {"id": "minimax-m25",          "name": "MiniMax M2.5",       "input": 0.40,  "output": 1.60,  "ctx": 198000,  "private": True},
-            {"id": "qwen3-next-80b",       "name": "Qwen 3 Next 80B",   "input": 0.35,  "output": 1.90,  "ctx": 256000,  "private": True},
-            {"id": "mistral-31-24b",       "name": "Venice Medium",      "input": 0.50,  "output": 2.00,  "ctx": 128000,  "private": True},
-            {"id": "llama-3.3-70b",        "name": "Llama 3.3 70B",      "input": 0.70,  "output": 2.80,  "ctx": 128000,  "private": True},
+            {"id": "grok-code-fast-1",     "name": "Grok Code Fast",     "input": 0.25,  "output": 1.87,  "ctx": 256000,  "private": False, "uncensored": False},
+            {"id": "deepseek-v3.2",        "name": "DeepSeek V3.2",      "input": 0.40,  "output": 1.00,  "ctx": 160000,  "private": True,  "uncensored": False},
+            {"id": "minimax-m21",          "name": "MiniMax M2.1",       "input": 0.40,  "output": 1.60,  "ctx": 198000,  "private": True,  "uncensored": False},
+            {"id": "minimax-m25",          "name": "MiniMax M2.5",       "input": 0.40,  "output": 1.60,  "ctx": 198000,  "private": True,  "uncensored": False},
+            {"id": "qwen3-next-80b",       "name": "Qwen 3 Next 80B",   "input": 0.35,  "output": 1.90,  "ctx": 256000,  "private": True,  "uncensored": False},
+            {"id": "mistral-31-24b",       "name": "Venice Medium",      "input": 0.50,  "output": 2.00,  "ctx": 128000,  "private": True,  "uncensored": False},
+            {"id": "llama-3.3-70b",        "name": "Llama 3.3 70B",      "input": 0.70,  "output": 2.80,  "ctx": 128000,  "private": True,  "uncensored": False},
         ],
         "default": "deepseek-v3.2",
     },
     "high": {
         "description": "Complex reasoning, multi-step tasks, code review",
         "models": [
-            {"id": "grok-41-fast",         "name": "Grok 4.1 Fast",      "input": 0.50,  "output": 1.25,  "ctx": 256000,  "private": False},
-            {"id": "zai-org-glm-4.7",      "name": "GLM 4.7",            "input": 0.55,  "output": 2.65,  "ctx": 198000,  "private": True},
-            {"id": "gemini-3-flash-preview","name": "Gemini 3 Flash",    "input": 0.70,  "output": 3.75,  "ctx": 256000,  "private": False},
-            {"id": "kimi-k2-thinking",     "name": "Kimi K2 Thinking",   "input": 0.75,  "output": 3.20,  "ctx": 256000,  "private": True},
-            {"id": "qwen3-coder-480b-a35b-instruct", "name": "Qwen 3 Coder 480B", "input": 0.75, "output": 3.00, "ctx": 256000, "private": True},
-            {"id": "zai-org-glm-5",        "name": "GLM 5",              "input": 1.00,  "output": 3.20,  "ctx": 198000,  "private": True},
+            {"id": "grok-41-fast",         "name": "Grok 4.1 Fast",      "input": 0.50,  "output": 1.25,  "ctx": 256000,  "private": False, "uncensored": False},
+            {"id": "zai-org-glm-4.7",      "name": "GLM 4.7",            "input": 0.55,  "output": 2.65,  "ctx": 198000,  "private": True,  "uncensored": False},
+            {"id": "gemini-3-flash-preview","name": "Gemini 3 Flash",    "input": 0.70,  "output": 3.75,  "ctx": 256000,  "private": False, "uncensored": False},
+            {"id": "kimi-k2-thinking",     "name": "Kimi K2 Thinking",   "input": 0.75,  "output": 3.20,  "ctx": 256000,  "private": True,  "uncensored": False},
+            {"id": "qwen3-coder-480b-a35b-instruct", "name": "Qwen 3 Coder 480B", "input": 0.75, "output": 3.00, "ctx": 256000, "private": True, "uncensored": False},
+            {"id": "zai-org-glm-5",        "name": "GLM 5",              "input": 1.00,  "output": 3.20,  "ctx": 198000,  "private": True,  "uncensored": False},
         ],
         "default": "deepseek-v3.2" if False else "kimi-k2-thinking",
     },
     "premium": {
         "description": "Expert-level analysis, architecture, research",
         "models": [
-            {"id": "openai-gpt-52",        "name": "GPT-5.2",            "input": 2.19,  "output": 17.50, "ctx": 256000,  "private": False},
-            {"id": "gemini-3-pro-preview",  "name": "Gemini 3 Pro",      "input": 2.50,  "output": 15.00, "ctx": 198000,  "private": False},
-            {"id": "claude-sonnet-4-6",     "name": "Claude Sonnet 4.6", "input": 3.75,  "output": 18.75, "ctx": 1000000, "private": False},
-            {"id": "claude-sonnet-45",      "name": "Claude Sonnet 4.5", "input": 3.75,  "output": 18.75, "ctx": 198000,  "private": False},
-            {"id": "claude-opus-45",        "name": "Claude Opus 4.5",   "input": 6.00,  "output": 30.00, "ctx": 198000,  "private": False},
-            {"id": "claude-opus-4-6",       "name": "Claude Opus 4.6",   "input": 6.00,  "output": 30.00, "ctx": 1000000, "private": False},
+            {"id": "openai-gpt-52",        "name": "GPT-5.2",            "input": 2.19,  "output": 17.50, "ctx": 256000,  "private": False, "uncensored": False},
+            {"id": "gemini-3-pro-preview",  "name": "Gemini 3 Pro",      "input": 2.50,  "output": 15.00, "ctx": 198000,  "private": False, "uncensored": False},
+            {"id": "claude-sonnet-4-6",     "name": "Claude Sonnet 4.6", "input": 3.75,  "output": 18.75, "ctx": 1000000, "private": False, "uncensored": False},
+            {"id": "claude-sonnet-45",      "name": "Claude Sonnet 4.5", "input": 3.75,  "output": 18.75, "ctx": 198000,  "private": False, "uncensored": False},
+            {"id": "claude-opus-45",        "name": "Claude Opus 4.5",   "input": 6.00,  "output": 30.00, "ctx": 198000,  "private": False, "uncensored": False},
+            {"id": "claude-opus-4-6",       "name": "Claude Opus 4.6",   "input": 6.00,  "output": 30.00, "ctx": 1000000, "private": False, "uncensored": False},
         ],
         "default": "gemini-3-pro-preview",
     },
@@ -251,17 +257,71 @@ def get_effective_tier(classified_tier: str, max_tier: str | None = None) -> str
     return classified_tier
 
 
-def select_model(tier: str, prefer_private: bool = True) -> dict:
-    """Select the best model from a tier, preferring private models."""
+def _tier_has_matching_model(tier: str, prefer_uncensored: bool, private_only: bool) -> bool:
+    """Check if a tier has models matching the given constraints."""
+    models = MODEL_TIERS[tier]["models"]
+    candidates = models
+    if private_only:
+        candidates = [m for m in candidates if m.get("private", False)]
+    if prefer_uncensored:
+        candidates = [m for m in candidates if m.get("uncensored", False)]
+    return len(candidates) > 0
+
+
+def find_tier_with_uncensored(starting_tier: str, max_tier: str | None = None, private_only: bool = False) -> str:
+    """Find the lowest tier at or above starting_tier that has uncensored models."""
+    start_idx = TIER_ORDER.index(starting_tier)
+    max_idx = TIER_ORDER.index(max_tier) if max_tier and max_tier in TIER_ORDER else len(TIER_ORDER) - 1
+    # Search upward from the classified tier
+    for i in range(start_idx, max_idx + 1):
+        if _tier_has_matching_model(TIER_ORDER[i], prefer_uncensored=True, private_only=private_only):
+            return TIER_ORDER[i]
+    # If nothing found, search downward
+    for i in range(start_idx - 1, -1, -1):
+        if _tier_has_matching_model(TIER_ORDER[i], prefer_uncensored=True, private_only=private_only):
+            return TIER_ORDER[i]
+    # No uncensored models anywhere, return original tier
+    return starting_tier
+
+
+def select_model(tier: str, prefer_private: bool = True, prefer_uncensored: bool = False, private_only: bool = False) -> dict:
+    """Select the best model from a tier with privacy/uncensored preferences.
+
+    Priority when prefer_uncensored=True:
+      1. uncensored + private models
+      2. uncensored models (any)
+      3. fall back to normal selection
+
+    When private_only=True, only private (zero data retention) models are considered.
+    """
     tier_data = MODEL_TIERS[tier]
     models = tier_data["models"]
 
+    # Apply private_only filter
+    if private_only:
+        candidates = [m for m in models if m.get("private", False)]
+        if not candidates:
+            # Fall back to all models if no private ones in this tier
+            candidates = models
+    else:
+        candidates = models
+
+    # Prefer uncensored models
+    if prefer_uncensored:
+        uncensored_private = [m for m in candidates if m.get("uncensored", False) and m.get("private", False)]
+        if uncensored_private:
+            return uncensored_private[0]
+        uncensored_any = [m for m in candidates if m.get("uncensored", False)]
+        if uncensored_any:
+            return uncensored_any[0]
+
+    # Prefer private models
     if prefer_private:
-        private_models = [m for m in models if m.get("private", False)]
+        private_models = [m for m in candidates if m.get("private", False)]
         if private_models:
             return private_models[0]
 
-    return models[0]
+    return candidates[0]
 
 
 # ── Venice.ai API Client ─────────────────────────────────────────────────────
@@ -273,6 +333,8 @@ def venice_chat(
     temperature: float = 0.7,
     max_tokens: int = 4096,
     stream: bool = False,
+    web_search: bool = False,
+    character_slug: str | None = None,
 ) -> str | None:
     """Send a chat completion request to Venice.ai."""
     url = f"{VENICE_API_BASE}/chat/completions"
@@ -284,6 +346,15 @@ def venice_chat(
         "max_tokens": max_tokens,
         "stream": stream,
     }
+
+    # Venice-specific parameters
+    venice_params = {}
+    if web_search:
+        venice_params["enable_web_search"] = "on"
+    if character_slug:
+        venice_params["character_slug"] = character_slug
+    if venice_params:
+        payload["venice_parameters"] = venice_params
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -376,6 +447,7 @@ def list_models():
 
         for m in tier["models"]:
             privacy = "🔒 private" if m["private"] else "🔀 anon"
+            uncensored = " 🔓" if m.get("uncensored", False) else ""
             default_marker = " ⭐" if m["id"] == tier["default"] else ""
             ctx_k = m["ctx"] // 1000
             print(
@@ -383,7 +455,7 @@ def list_models():
             )
             print(
                 f"      ${m['input']:<6.2f} in / ${m['output']:<6.2f} out  "
-                f"| {ctx_k}K ctx | {privacy}{default_marker}"
+                f"| {ctx_k}K ctx | {privacy}{uncensored}{default_marker}"
             )
         print()
 
@@ -399,6 +471,9 @@ Examples:
   %(prog)s --prompt "What is 2+2?"
   %(prog)s --tier mid --prompt "Explain recursion"
   %(prog)s --stream --prompt "Write a haiku"
+  %(prog)s --web-search --prompt "Latest news on AI regulation"
+  %(prog)s --uncensored --prompt "Write edgy creative fiction"
+  %(prog)s --private-only --prompt "Analyze this confidential data"
   %(prog)s --classify "Design a microservices architecture"
   %(prog)s --list-models
   %(prog)s --model deepseek-v3.2 --prompt "Hello"
@@ -415,6 +490,10 @@ Examples:
     parser.add_argument("--max-tokens", type=int, default=None, help="Max tokens")
     parser.add_argument("--system", type=str, default=None, help="System prompt")
     parser.add_argument("--prefer-anon", action="store_true", help="Prefer anonymized models over private")
+    parser.add_argument("--uncensored", "-u", action="store_true", help="Prefer uncensored models (no content filters, no refusals)")
+    parser.add_argument("--private-only", action="store_true", help="Only use private models (zero data retention, no Big Tech proxying)")
+    parser.add_argument("--web-search", "-w", action="store_true", help="Enable Venice web search ($10/1K calls) — LLM can search & cite sources")
+    parser.add_argument("--character", type=str, default=None, help="Venice character slug for persona-based responses")
     parser.add_argument("--json", "-j", action="store_true", help="Output routing info as JSON")
 
     args = parser.parse_args()
@@ -427,10 +506,15 @@ Examples:
     # ── Classify only ────────────────────────────────────────────────────
     if args.classify:
         tier = classify_complexity(args.classify)
-        model = select_model(tier, prefer_private=not args.prefer_anon)
+        prefer_private = not args.prefer_anon
+        prefer_uncensored = args.uncensored or os.environ.get("VENICE_UNCENSORED", "false").lower() == "true"
+        private_only = args.private_only or os.environ.get("VENICE_PRIVATE_ONLY", "false").lower() == "true"
+        model = select_model(tier, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only)
         max_tier = os.environ.get("VENICE_MAX_TIER")
         effective_tier = get_effective_tier(tier, max_tier)
-        effective_model = select_model(effective_tier, prefer_private=not args.prefer_anon)
+        if prefer_uncensored:
+            effective_tier = find_tier_with_uncensored(effective_tier, max_tier, private_only)
+        effective_model = select_model(effective_tier, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only)
 
         if args.json:
             result = {
@@ -442,10 +526,13 @@ Examples:
                 "output_cost_per_1m": effective_model["output"],
                 "context_window": effective_model["ctx"],
                 "private": effective_model["private"],
+                "uncensored": effective_model.get("uncensored", False),
                 "prompt_length": len(args.classify),
             }
             if max_tier and tier != effective_tier:
                 result["capped_by_max_tier"] = max_tier
+            if args.web_search:
+                result["web_search"] = True
             print(json.dumps(result, indent=2))
         else:
             emoji = {"cheap": "💚", "budget": "💙", "mid": "💛", "high": "🧡", "premium": "💎"}
@@ -455,7 +542,10 @@ Examples:
             print(f"  Model:       {effective_model['name']} ({effective_model['id']})")
             print(f"  Cost:        ${effective_model['input']}/M in, ${effective_model['output']}/M out")
             print(f"  Context:     {effective_model['ctx'] // 1000}K tokens")
-            print(f"  Privacy:     {'🔒 private' if effective_model['private'] else '🔀 anonymized'}")
+            print(f"  Privacy:     {'🔒 private (zero retention)' if effective_model['private'] else '🔀 anonymized (proxied)'}")
+            print(f"  Uncensored:  {'🔓 yes' if effective_model.get('uncensored', False) else '🛡️ no'}")
+            if args.web_search:
+                print(f"  Web Search:  🌐 enabled ($10/1K calls)")
         return
 
     # ── Send prompt ──────────────────────────────────────────────────────
@@ -473,6 +563,12 @@ Examples:
         print("   Get one at: https://venice.ai/settings/api", file=sys.stderr)
         sys.exit(1)
 
+    # Model selection preferences
+    prefer_private = not args.prefer_anon
+    prefer_uncensored = args.uncensored or os.environ.get("VENICE_UNCENSORED", "false").lower() == "true"
+    private_only = args.private_only or os.environ.get("VENICE_PRIVATE_ONLY", "false").lower() == "true"
+    web_search = args.web_search or os.environ.get("VENICE_WEB_SEARCH", "false").lower() == "true"
+
     # Determine model
     if args.model:
         model_id = args.model
@@ -480,14 +576,18 @@ Examples:
         tier_name = "custom"
     elif args.tier:
         tier_name = args.tier
-        model_info = select_model(tier_name, prefer_private=not args.prefer_anon)
+        if prefer_uncensored:
+            tier_name = find_tier_with_uncensored(tier_name, os.environ.get("VENICE_MAX_TIER"), private_only)
+        model_info = select_model(tier_name, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only)
         model_id = model_info["id"]
         model_name = model_info["name"]
     else:
         tier_name = classify_complexity(args.prompt)
         max_tier = os.environ.get("VENICE_MAX_TIER")
         tier_name = get_effective_tier(tier_name, max_tier)
-        model_info = select_model(tier_name, prefer_private=not args.prefer_anon)
+        if prefer_uncensored:
+            tier_name = find_tier_with_uncensored(tier_name, max_tier, private_only)
+        model_info = select_model(tier_name, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only)
         model_id = model_info["id"]
         model_name = model_info["name"]
 
@@ -504,7 +604,15 @@ Examples:
 
     # Route info
     emoji = {"cheap": "💚", "budget": "💙", "mid": "💛", "high": "🧡", "premium": "💎", "custom": "⚙️"}
-    print(f"🦞 Venice Router → {emoji.get(tier_name, '⚪')} {tier_name.upper()} → {model_name} ({model_id})", file=sys.stderr)
+    flags = []
+    if web_search:
+        flags.append("🌐 web")
+    if prefer_uncensored:
+        flags.append("🔓 uncensored")
+    if private_only:
+        flags.append("🔒 private-only")
+    flag_str = f" [{', '.join(flags)}]" if flags else ""
+    print(f"🧡 Venice Router → {emoji.get(tier_name, '⚪')} {tier_name.upper()} → {model_name} ({model_id}){flag_str}", file=sys.stderr)
 
     # Call Venice API
     response = venice_chat(
@@ -514,6 +622,8 @@ Examples:
         temperature=temperature,
         max_tokens=max_tokens,
         stream=stream,
+        web_search=web_search,
+        character_slug=args.character,
     )
 
     if response and not stream:

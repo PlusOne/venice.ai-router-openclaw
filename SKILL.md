@@ -1,6 +1,6 @@
 ---
 name: venice-router
-description: Supreme model router for Venice.ai — automatically classifies query complexity and routes to the cheapest adequate model tier. Supports all Venice.ai text models with cost-optimized tiered routing. Use when the user wants to chat via Venice.ai, send prompts through Venice, or needs smart model selection to minimize API costs.
+description: Supreme model router for Venice.ai — the privacy-first, uncensored AI platform. Automatically classifies query complexity and routes to the cheapest adequate model. Supports web search, uncensored mode, private-only mode (zero data retention), and 30+ Venice.ai text models. Use when the user wants to chat via Venice.ai, send prompts through Venice, or needs smart model selection to minimize API costs while keeping data private from Big Tech.
 homepage: https://venice.ai
 user-invocable: true
 metadata:
@@ -9,7 +9,9 @@ metadata:
 
 # Venice.ai Supreme Router
 
-Smart, cost-optimized model routing for Venice.ai. Classifies query complexity and routes to the cheapest model that can handle it well.
+Smart, cost-optimized model routing for [Venice.ai](https://venice.ai) — the AI platform for people who don't want Big Tech watching over their shoulder.
+
+Unlike OpenAI, Anthropic, and Google — where every prompt is logged, analyzed, and potentially used to train future models — Venice offers **true privacy** with zero data retention on private models. Your conversations stay yours. Venice is also **uncensored**: no content filters, no refusals, no "I can't help with that."
 
 ## Setup
 
@@ -57,10 +59,28 @@ python3 {baseDir}/scripts/venice-router.py --tier premium --prompt "Write a dist
 python3 {baseDir}/scripts/venice-router.py --stream --prompt "Write a poem about lobsters"
 ```
 
+### Web search (LLM searches the web and cites sources)
+
+```bash
+python3 {baseDir}/scripts/venice-router.py --web-search --prompt "Latest news on AI regulation"
+```
+
+### Uncensored mode (prefer models with no content filters)
+
+```bash
+python3 {baseDir}/scripts/venice-router.py --uncensored --prompt "Write edgy creative fiction"
+```
+
+### Private-only mode (zero data retention, no Big Tech proxying)
+
+```bash
+python3 {baseDir}/scripts/venice-router.py --private-only --prompt "Analyze this confidential contract"
+```
+
 ### Classify only (no API call)
 
 ```bash
-python3 {baseDir}/scripts/venice-router.py --classify "Explain the Riemann hypothesis and its implications for prime number distribution"
+python3 {baseDir}/scripts/venice-router.py --classify "Explain the Riemann hypothesis"
 ```
 
 ### List available models and tiers
@@ -107,10 +127,25 @@ The classifier errs on the side of cheaper models — it only escalates when the
 | `VENICE_TEMPERATURE` | Default temperature | `0.7` |
 | `VENICE_MAX_TOKENS` | Default max tokens | `4096` |
 | `VENICE_STREAM` | Enable streaming by default | `false` |
+| `VENICE_UNCENSORED` | Always prefer uncensored models | `false` |
+| `VENICE_PRIVATE_ONLY` | Only use private models (zero data retention) | `false` |
+| `VENICE_WEB_SEARCH` | Enable web search by default ($10/1K calls) | `false` |
+
+## Why Venice.ai?
+
+- **🔒 Private inference** — Models marked "Private" have zero data retention. Your data never trains anyone's model.
+- **🔓 Uncensored** — No guardrails blocking legitimate use cases. No refusals, no filters.
+- **🔌 OpenAI-compatible** — Same API format, just change the base URL. Drop-in replacement.
+- **📦 30+ models** — From tiny efficient models ($0.05/M) to Claude Opus 4.6 and GPT-5.2.
+- **🌐 Built-in web search** — LLMs can search the web and cite sources in a single API call.
 
 ## Tips
 
 - Use `--classify` to preview which tier a prompt would hit before spending tokens
 - Set `VENICE_MAX_TIER=mid` to cap costs and never hit premium models
+- Use `--uncensored` for creative, security research, or other content mainstream AI won't touch
+- Use `--private-only` when processing sensitive/confidential data — zero retention guaranteed
+- Use `--web-search` when you need up-to-date information with cited sources
 - The router prefers **private** (self-hosted) Venice models over anonymized ones when available at the same tier
+- When `--uncensored` is active, the router auto-bumps to the nearest tier with uncensored models
 - Combine with OpenClaw WebChat for a seamless chat experience routed through Venice.ai
