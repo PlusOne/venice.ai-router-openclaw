@@ -38,6 +38,9 @@ The classifier uses heuristic analysis:
 - **Code markers** — code blocks, function names, technical syntax
 - **Instruction depth** — multi-step instructions, comparisons
 - **Conversational simplicity** — greetings and small talk stay cheap
+- **Conversation context** — when given chat history, analyzes the full conversation to maintain appropriate tier
+- **Function calling** — tool use auto-bumps to at least mid tier
+- **Budget constraints** — progressive tier downgrade as spending approaches daily/session limits
 
 ## Model Tiers
 
@@ -160,6 +163,38 @@ python3 scripts/venice-router.py --private-only --prompt "Analyze this confident
 # Only uses Venice-hosted models — never proxies to OpenAI/Anthropic/Google
 ```
 
+### CLI — Conversation-Aware Routing (multi-turn)
+
+```bash
+# Save conversation as JSON: [{"role":"user","content":"..."}, {"role":"assistant","content":"..."}]
+python3 scripts/venice-router.py --conversation history.json --prompt "Can you add error handling too?"
+# Router analyzes full conversation context — trivial follow-ups go cheap, complex code convos stay at mid/high
+```
+
+### CLI — Function Calling (tool use)
+
+```bash
+# Define tools in OpenAI format: [{"type":"function","function":{"name":"...","parameters":{...}}}]
+python3 scripts/venice-router.py --tools tools.json --prompt "What's the weather in NYC?"
+python3 scripts/venice-router.py --tools tools.json --tool-choice required --prompt "Look up the stock price"
+# Auto-bumps to mid tier minimum — function calling needs capable models
+```
+
+### CLI — Cost Budget Management
+
+```bash
+# Set daily and/or session spending limits
+export VENICE_DAILY_BUDGET=2.00    # $2/day max
+export VENICE_SESSION_BUDGET=0.50  # $0.50/session max
+
+# View spending breakdown
+python3 scripts/venice-router.py --budget-status
+python3 scripts/venice-router.py --budget-status --session-id my-project
+
+# Router auto-downgrades tiers as budget is consumed:
+# 95% spent → cheap only | 80% → budget max | 60% → mid max | 40% → high max
+```
+
 ### CLI — Classify Only (No API Call)
 
 ```bash
@@ -215,6 +250,8 @@ python3 scripts/venice-router.py --classify "Design a system" --json
 | `VENICE_UNCENSORED` | Always prefer uncensored models | `false` |
 | `VENICE_PRIVATE_ONLY` | Only use private models (zero data retention) | `false` |
 | `VENICE_WEB_SEARCH` | Enable web search by default ($10/1K calls) | `false` |
+| `VENICE_DAILY_BUDGET` | Max daily spend in USD (0 = unlimited) | `0` |
+| `VENICE_SESSION_BUDGET` | Max per-session spend in USD (0 = unlimited) | `0` |
 
 ### Cost Control
 
@@ -223,6 +260,15 @@ Cap your spending by setting `VENICE_MAX_TIER`:
 ```bash
 export VENICE_MAX_TIER=mid  # Never use high or premium models
 ```
+
+Or use budget tracking for progressive tier downgrading:
+
+```bash
+export VENICE_DAILY_BUDGET=2.00    # $2/day soft cap
+export VENICE_SESSION_BUDGET=0.50  # $0.50/session soft cap
+```
+
+Budget tracking stores cost data in `~/.venice-router/costs/` and auto-downgrades tiers as spending approaches limits. Use `--budget-status` to see a breakdown with progress bars.
 
 ### Privacy
 
@@ -239,25 +285,32 @@ Use `--prefer-anon` to override this behavior.
 usage: venice-router.py [-h] [--prompt PROMPT] [--tier {cheap,budget,mid,high,premium}]
                         [--model MODEL] [--classify CLASSIFY] [--list-models]
                         [--stream] [--web-search] [--uncensored] [--private-only]
-                        [--temperature TEMP] [--max-tokens N]
-                        [--system SYSTEM] [--character SLUG] [--prefer-anon] [--json]
+                        [--temperature TEMP] [--max-tokens N] [--system SYSTEM]
+                        [--character SLUG] [--prefer-anon] [--json]
+                        [--conversation FILE] [--tools FILE] [--tool-choice CHOICE]
+                        [--budget-status] [--session-id ID]
 
 Options:
-  --prompt, -p       Prompt to send to Venice.ai
-  --tier, -t         Force a specific tier (cheap|budget|mid|high|premium)
-  --model, -m        Force a specific model ID
-  --classify, -c     Classify complexity without calling the API
-  --list-models, -l  List all model tiers and pricing
-  --stream, -s       Enable streaming output
-  --web-search, -w   Enable Venice web search ($10/1K calls)
-  --uncensored, -u   Prefer uncensored models (no content filters)
-  --private-only     Only use private models (zero data retention)
-  --temperature      Temperature (0.0–2.0)
-  --max-tokens       Max output tokens
-  --system           System prompt
-  --character        Venice character slug for persona responses
-  --prefer-anon      Prefer anonymized over private models
-  --json, -j         Output routing info as JSON
+  --prompt, -p         Prompt to send to Venice.ai
+  --tier, -t           Force a specific tier (cheap|budget|mid|high|premium)
+  --model, -m          Force a specific model ID
+  --classify, -c       Classify complexity without calling the API
+  --list-models, -l    List all model tiers and pricing
+  --stream, -s         Enable streaming output
+  --web-search, -w     Enable Venice web search ($10/1K calls)
+  --uncensored, -u     Prefer uncensored models (no content filters)
+  --private-only       Only use private models (zero data retention)
+  --temperature        Temperature (0.0–2.0)
+  --max-tokens         Max output tokens
+  --system             System prompt
+  --character          Venice character slug for persona responses
+  --prefer-anon        Prefer anonymized over private models
+  --json, -j           Output routing info as JSON
+  --conversation       JSON file with conversation history for context-aware routing
+  --tools              JSON file with tool/function definitions (OpenAI format)
+  --tool-choice        Tool choice: "auto", "none", "required", or JSON object
+  --budget-status      Show current cost budget usage and exit
+  --session-id         Session ID for per-session cost tracking
 ```
 
 ## Project Structure

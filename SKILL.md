@@ -77,6 +77,37 @@ python3 {baseDir}/scripts/venice-router.py --uncensored --prompt "Write edgy cre
 python3 {baseDir}/scripts/venice-router.py --private-only --prompt "Analyze this confidential contract"
 ```
 
+### Conversation-aware routing (multi-turn context)
+
+```bash
+# Save conversation history as JSON, then route follow-ups with context
+python3 {baseDir}/scripts/venice-router.py --conversation history.json --prompt "Can you add tests too?"
+```
+
+The router analyzes conversation history to keep context: trivial follow-ups ("thanks") go cheap, while follow-ups in complex code discussions stay at the right tier.
+
+### Function calling (tool use)
+
+```bash
+# Define tools in a JSON file (OpenAI tools format)
+python3 {baseDir}/scripts/venice-router.py --tools tools.json --prompt "What's the weather in NYC?"
+python3 {baseDir}/scripts/venice-router.py --tools tools.json --tool-choice auto --prompt "Search for latest AI news"
+```
+
+Tool definitions use the standard OpenAI format. The router auto-bumps to `mid` tier minimum for function calling since it requires capable models.
+
+### Cost budget tracking
+
+```bash
+# Show current spending
+python3 {baseDir}/scripts/venice-router.py --budget-status
+
+# Track per-session costs
+python3 {baseDir}/scripts/venice-router.py --session-id my-project --prompt "help me code"
+```
+
+Set `VENICE_DAILY_BUDGET` and/or `VENICE_SESSION_BUDGET` to enforce spending limits. The router auto-downgrades tiers as you approach budget limits.
+
 ### Classify only (no API call)
 
 ```bash
@@ -114,6 +145,9 @@ The router classifies each prompt using keyword + heuristic analysis:
 3. **Code markers** — presence of code blocks, function names, or technical syntax
 4. **Instruction depth** — multi-step instructions, comparisons, or "explain in detail" bump the tier
 5. **Conversational simplicity** — greetings, yes/no, small talk stay on the cheapest tier
+6. **Conversation history** — when `--conversation` is provided, analyzes full chat context: code in history boosts tier, trivial follow-ups ("thanks") downgrade, tool calls in history signal complexity
+7. **Function calling** — `--tools` auto-bumps to at least `mid` tier (capable models required)
+8. **Budget constraints** — progressive tier downgrade as spending approaches daily/session limits (95% → cheap, 80% → budget, 60% → mid, 40% → high)
 
 The classifier errs on the side of cheaper models — it only escalates when there's strong signal for complexity.
 
@@ -130,6 +164,8 @@ The classifier errs on the side of cheaper models — it only escalates when the
 | `VENICE_UNCENSORED` | Always prefer uncensored models | `false` |
 | `VENICE_PRIVATE_ONLY` | Only use private models (zero data retention) | `false` |
 | `VENICE_WEB_SEARCH` | Enable web search by default ($10/1K calls) | `false` |
+| `VENICE_DAILY_BUDGET` | Max daily spend in USD (0 = unlimited) | `0` |
+| `VENICE_SESSION_BUDGET` | Max per-session spend in USD (0 = unlimited) | `0` |
 
 ## Why Venice.ai?
 
@@ -146,6 +182,10 @@ The classifier errs on the side of cheaper models — it only escalates when the
 - Use `--uncensored` for creative, security research, or other content mainstream AI won't touch
 - Use `--private-only` when processing sensitive/confidential data — zero retention guaranteed
 - Use `--web-search` when you need up-to-date information with cited sources
+- Use `--conversation` with a JSON message history for smarter multi-turn routing
+- Use `--tools` to enable function calling — the router auto-bumps to capable models
+- Set `VENICE_DAILY_BUDGET=1.00` to cap daily spend at $1 — the router auto-downgrades tiers as you approach the limit
+- Use `--budget-status` to see a detailed breakdown of your spending by tier
 - The router prefers **private** (self-hosted) Venice models over anonymized ones when available at the same tier
 - When `--uncensored` is active, the router auto-bumps to the nearest tier with uncensored models
 - Combine with OpenClaw WebChat for a seamless chat experience routed through Venice.ai

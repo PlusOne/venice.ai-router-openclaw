@@ -4,7 +4,8 @@ Venice.ai Supreme Router — cost-optimized model routing for OpenClaw.
 
 Classifies prompt complexity and routes to the cheapest Venice.ai model
 that can handle the task adequately. Supports streaming, tier overrides,
-direct model selection, web search, and uncensored/private-only modes.
+direct model selection, web search, uncensored/private-only modes,
+conversation-aware routing, cost budgets, and function calling.
 
 Venice.ai is the AI platform for privacy and freedom — zero data retention
 on private models, no content filters, no refusals. OpenAI-compatible API.
@@ -16,6 +17,9 @@ Usage:
     python3 venice-router.py --web-search --prompt "latest news on X"
     python3 venice-router.py --uncensored --prompt "creative fiction prompt"
     python3 venice-router.py --private-only --prompt "sensitive data query"
+    python3 venice-router.py --conversation history.json --prompt "follow up"
+    python3 venice-router.py --tools tools.json --prompt "get weather in NYC"
+    python3 venice-router.py --budget-status
     python3 venice-router.py --classify "your question"
     python3 venice-router.py --list-models
 """
@@ -25,6 +29,9 @@ import json
 import os
 import re
 import sys
+import hashlib
+from datetime import datetime, timezone
+from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
@@ -324,6 +331,298 @@ def select_model(tier: str, prefer_private: bool = True, prefer_uncensored: bool
     return candidates[0]
 
 
+# ── Conversation-Aware Routing ───────────────────────────────────────────────
+
+def classify_with_conversation(messages: list[dict]) -> str:
+    """Classify complexity considering full conversation history.
+
+    Analyzes the latest user message in context of the conversation:
+    - Short follow-ups after complex exchanges stay at the conversation's tier
+    - Trivial messages (thanks, ok, yes) downgrade to cheap
+    - New complex topics in a simple conversation escalate appropriately
+    - Code blocks or tool results in history boost the tier
+    """
+    if not messages:
+        return "budget"
+
+    # Get the latest user message
+    user_messages = [m for m in messages if m.get("role") == "user"]
+    if not user_messages:
+        return "budget"
+
+    latest = user_messages[-1].get("content", "")
+    latest_tier = classify_complexity(latest)
+
+    # If only one message, just use single-prompt classification
+    if len(user_messages) <= 1:
+        return latest_tier
+
+    # ── Conversation context signals ─────────────────────────────────
+    conv_score = 0
+
+    # Check if the conversation has had complex exchanges
+    all_content = " ".join(m.get("content", "") for m in messages if m.get("content"))
+
+    # Code in conversation history
+    if "```" in all_content:
+        conv_score += 1
+
+    # Tool/function calls in history indicate complex workflow
+    has_tool_calls = any(
+        m.get("role") == "assistant" and m.get("tool_calls")
+        for m in messages
+    )
+    has_tool_results = any(m.get("role") == "tool" for m in messages)
+    if has_tool_calls or has_tool_results:
+        conv_score += 2
+
+    # Long conversation = likely complex topic
+    if len(messages) >= 10:
+        conv_score += 1
+    elif len(messages) >= 6:
+        conv_score += 0  # neutral
+
+    # Previous assistant responses were long (complex discussion)
+    assistant_msgs = [m for m in messages if m.get("role") == "assistant"]
+    if assistant_msgs:
+        avg_len = sum(len(m.get("content", "")) for m in assistant_msgs) / len(assistant_msgs)
+        if avg_len > 1000:
+            conv_score += 1
+
+    # ── Latest message analysis ──────────────────────────────────────
+    latest_lower = latest.strip().lower()
+
+    # Trivial follow-ups → downgrade regardless of history
+    trivial_patterns = [
+        r"^(thanks?|thank\s+you|thx|ty|cheers|great|perfect|awesome|got\s+it)[\s!?.]*$",
+        r"^(yes|no|ok(ay)?|sure|nope|yep|yup|nah|k|kk)[\s!?.]*$",
+        r"^(bye|goodbye|see\s+you|later|done|quit|exit)[\s!?.]*$",
+    ]
+    for pattern in trivial_patterns:
+        if re.search(pattern, latest_lower, re.IGNORECASE):
+            return "cheap"
+
+    # Short follow-up in a complex conversation → maintain conversation tier
+    # "can you also add error handling?" after a coding discussion
+    if len(latest) < 100 and conv_score >= 1:
+        # Keep at least the conversation's complexity level
+        conv_tier_idx = min(conv_score, len(TIER_ORDER) - 1)
+        conv_tier = TIER_ORDER[conv_tier_idx]
+        latest_tier_idx = TIER_ORDER.index(latest_tier)
+        # Use the higher of conversation context or latest classification
+        return TIER_ORDER[max(conv_tier_idx, latest_tier_idx)]
+
+    # Default: classify latest message, but bump up if conversation is complex
+    latest_tier_idx = TIER_ORDER.index(latest_tier)
+    if conv_score >= 2 and latest_tier_idx < 2:  # bump at least to mid
+        return TIER_ORDER[max(latest_tier_idx, 2)]
+    elif conv_score >= 1 and latest_tier_idx < 1:  # bump at least to budget
+        return TIER_ORDER[max(latest_tier_idx, 1)]
+
+    return latest_tier
+
+
+# ── Cost Budget Tracker ──────────────────────────────────────────────────────
+
+COST_TRACKING_DIR = Path(os.environ.get(
+    "VENICE_COST_DIR",
+    os.path.join(os.environ.get("HOME", "/tmp"), ".venice-router", "costs")
+))
+
+
+def _ensure_cost_dir():
+    """Create cost tracking directory if needed."""
+    COST_TRACKING_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _cost_file_path(scope: str = "daily", session_id: str | None = None) -> Path:
+    """Get the cost tracking file path for the given scope."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    if scope == "daily":
+        return COST_TRACKING_DIR / f"cost-{today}.json"
+    elif scope == "session":
+        sid = session_id or os.environ.get("VENICE_SESSION_ID", str(os.getppid()))
+        session_hash = hashlib.md5(f"{today}-{sid}".encode()).hexdigest()[:8]
+        return COST_TRACKING_DIR / f"session-{session_hash}.json"
+    return COST_TRACKING_DIR / f"cost-{today}.json"
+
+
+def _load_cost_data(scope: str = "daily", session_id: str | None = None) -> dict:
+    """Load cost data from file."""
+    path = _cost_file_path(scope, session_id=session_id)
+    if path.exists():
+        try:
+            return json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "total_cost_usd": 0.0,
+        "total_input_tokens": 0,
+        "total_output_tokens": 0,
+        "calls": 0,
+        "by_tier": {},
+        "by_model": {},
+    }
+
+
+def _save_cost_data(data: dict, scope: str = "daily", session_id: str | None = None):
+    """Save cost data to file."""
+    _ensure_cost_dir()
+    path = _cost_file_path(scope, session_id=session_id)
+    path.write_text(json.dumps(data, indent=2))
+
+
+def record_cost(model_info: dict, input_tokens: int, output_tokens: int, tier: str = "unknown", session_id: str | None = None):
+    """Record a completed API call's cost."""
+    input_cost = (input_tokens / 1_000_000) * model_info["input"]
+    output_cost = (output_tokens / 1_000_000) * model_info["output"]
+    total_cost = input_cost + output_cost
+
+    for scope in ["daily", "session"]:
+        data = _load_cost_data(scope, session_id=session_id if scope == "session" else None)
+        data["total_cost_usd"] += total_cost
+        data["total_input_tokens"] += input_tokens
+        data["total_output_tokens"] += output_tokens
+        data["calls"] += 1
+
+        # Track by tier
+        tier_name = tier if tier in TIER_ORDER else "unknown"
+        if tier_name == "unknown":
+            for t_name in TIER_ORDER:
+                for m in MODEL_TIERS[t_name]["models"]:
+                    if m["id"] == model_info["id"]:
+                        tier_name = t_name
+                        break
+        tier_data = data.setdefault("by_tier", {}).setdefault(tier_name, {"cost": 0.0, "calls": 0})
+        tier_data["cost"] += total_cost
+        tier_data["calls"] += 1
+
+        # Track by model
+        model_data = data.setdefault("by_model", {}).setdefault(model_info["id"], {"cost": 0.0, "calls": 0, "name": model_info["name"]})
+        model_data["cost"] += total_cost
+        model_data["calls"] += 1
+
+        _save_cost_data(data, scope, session_id=session_id if scope == "session" else None)
+
+    return total_cost
+
+
+def check_budget(model_info: dict, estimated_tokens: int = 4096) -> tuple[bool, float, float]:
+    """Check if a call would exceed the daily/session budget.
+
+    Returns (allowed, remaining_daily, remaining_session).
+    """
+    daily_budget = float(os.environ.get("VENICE_DAILY_BUDGET", "0"))
+    session_budget = float(os.environ.get("VENICE_SESSION_BUDGET", "0"))
+
+    # Estimate cost for this call
+    estimated_cost = (estimated_tokens / 1_000_000) * (model_info["input"] + model_info["output"])
+
+    remaining_daily = float("inf")
+    remaining_session = float("inf")
+
+    if daily_budget > 0:
+        daily_data = _load_cost_data("daily")
+        remaining_daily = daily_budget - daily_data["total_cost_usd"]
+        if remaining_daily < estimated_cost:
+            return False, remaining_daily, remaining_session
+
+    if session_budget > 0:
+        session_data = _load_cost_data("session")
+        remaining_session = session_budget - session_data["total_cost_usd"]
+        if remaining_session < estimated_cost:
+            return False, remaining_daily, remaining_session
+
+    return True, remaining_daily, remaining_session
+
+
+def get_budget_constrained_tier(tier: str, session_id: str | None = None) -> str:
+    """Downgrade tier if budget is running low."""
+    daily_budget = float(os.environ.get("VENICE_DAILY_BUDGET", "0") or "0")
+    session_budget = float(os.environ.get("VENICE_SESSION_BUDGET", "0") or "0")
+
+    if daily_budget <= 0 and session_budget <= 0:
+        return tier  # No budget configured
+
+    daily_data = _load_cost_data("daily")
+    daily_spent = daily_data["total_cost_usd"]
+
+    budget = daily_budget if daily_budget > 0 else session_budget
+    spent = daily_spent
+
+    if budget <= 0:
+        return tier
+
+    usage_pct = spent / budget
+
+    tier_idx = TIER_ORDER.index(tier)
+
+    # Progressive downgrade as budget is consumed
+    if usage_pct >= 0.95:
+        # Almost exhausted → force cheap
+        return "cheap"
+    elif usage_pct >= 0.80:
+        # 80%+ used → cap at budget tier
+        return TIER_ORDER[min(tier_idx, 1)]
+    elif usage_pct >= 0.60:
+        # 60%+ used → cap at mid
+        return TIER_ORDER[min(tier_idx, 2)]
+    elif usage_pct >= 0.40:
+        # 40%+ used → cap at high
+        return TIER_ORDER[min(tier_idx, 3)]
+
+    return tier
+
+
+def show_budget_status(session_id: str | None = None):
+    """Print current budget usage."""
+    daily_budget = float(os.environ.get("VENICE_DAILY_BUDGET", "0") or "0")
+    session_budget = float(os.environ.get("VENICE_SESSION_BUDGET", "0") or "0")
+
+    print("╔══════════════════════════════════════════════════════════════════╗")
+    print("║            Venice.ai Router — Cost & Budget Status             ║")
+    print("╚══════════════════════════════════════════════════════════════════╝")
+    print()
+
+    for scope, budget_val in [("daily", daily_budget), ("session", session_budget)]:
+        data = _load_cost_data(scope, session_id=session_id if scope == "session" else None)
+        label = "📅 Daily" if scope == "daily" else "🔄 Session"
+
+        print(f"  {label} ({data.get('date', 'unknown')})")
+        print(f"  {'─' * 50}")
+        print(f"    Total cost:    ${data['total_cost_usd']:.6f}")
+        print(f"    API calls:     {data['calls']}")
+        print(f"    Input tokens:  {data['total_input_tokens']:,}")
+        print(f"    Output tokens: {data['total_output_tokens']:,}")
+
+        if budget_val > 0:
+            remaining = budget_val - data["total_cost_usd"]
+            pct = (data["total_cost_usd"] / budget_val) * 100 if budget_val > 0 else 0
+            bar_len = 30
+            filled = int(bar_len * min(pct, 100) / 100)
+            bar = "█" * filled + "░" * (bar_len - filled)
+            print(f"    Budget:        ${budget_val:.4f}")
+            print(f"    Remaining:     ${remaining:.6f}")
+            print(f"    Usage:         [{bar}] {pct:.1f}%")
+        else:
+            print(f"    Budget:        not configured")
+
+        # Per-tier breakdown
+        by_tier = data.get("by_tier", {})
+        if by_tier:
+            print(f"    ┌{'─' * 46}┐")
+            print(f"    │ {'Tier':<12} {'Calls':>6} {'Cost':>12} {'%':>8}    │")
+            print(f"    ├{'─' * 46}┤")
+            total_cost = max(data["total_cost_usd"], 0.000001)
+            for t in TIER_ORDER:
+                if t in by_tier:
+                    td = by_tier[t]
+                    pct_t = (td["cost"] / total_cost) * 100
+                    print(f"    │ {t:<12} {td['calls']:>6} ${td['cost']:>10.6f} {pct_t:>7.1f}%   │")
+            print(f"    └{'─' * 46}┘")
+        print()
+
 # ── Venice.ai API Client ─────────────────────────────────────────────────────
 
 def venice_chat(
@@ -335,8 +634,17 @@ def venice_chat(
     stream: bool = False,
     web_search: bool = False,
     character_slug: str | None = None,
-) -> str | None:
-    """Send a chat completion request to Venice.ai."""
+    tools: list[dict] | None = None,
+    tool_choice: str | dict | None = None,
+) -> dict:
+    """Send a chat completion request to Venice.ai.
+
+    Returns a dict with:
+      - content: str — the text response (may be empty if tool_calls present)
+      - tool_calls: list[dict] | None — function calls the model wants to make
+      - usage: dict — token usage {prompt_tokens, completion_tokens, total_tokens}
+      - finish_reason: str — "stop", "tool_calls", "length", etc.
+    """
     url = f"{VENICE_API_BASE}/chat/completions"
 
     payload = {
@@ -346,6 +654,12 @@ def venice_chat(
         "max_tokens": max_tokens,
         "stream": stream,
     }
+
+    # Function calling / tools
+    if tools:
+        payload["tools"] = tools
+        if tool_choice:
+            payload["tool_choice"] = tool_choice
 
     # Venice-specific parameters
     venice_params = {}
@@ -383,9 +697,12 @@ def venice_chat(
         sys.exit(1)
 
 
-def _handle_stream(resp) -> str:
-    """Handle SSE streaming response."""
+def _handle_stream(resp) -> dict:
+    """Handle SSE streaming response, including tool call deltas."""
     full_content = []
+    tool_calls_by_idx = {}  # index -> {id, type, function: {name, arguments}}
+    finish_reason = "stop"
+
     for line in resp:
         line = line.decode("utf-8").strip()
         if not line or not line.startswith("data: "):
@@ -396,25 +713,70 @@ def _handle_stream(resp) -> str:
         try:
             chunk = json.loads(data_str)
             choices = chunk.get("choices", [])
-            if choices:
-                delta = choices[0].get("delta", {})
-                content = delta.get("content", "")
-                if content:
-                    print(content, end="", flush=True)
-                    full_content.append(content)
+            if not choices:
+                continue
+            choice = choices[0]
+            delta = choice.get("delta", {})
+            fr = choice.get("finish_reason")
+            if fr:
+                finish_reason = fr
+
+            # Content streaming
+            content = delta.get("content", "")
+            if content:
+                print(content, end="", flush=True)
+                full_content.append(content)
+
+            # Tool call streaming — accumulate deltas by index
+            tc_deltas = delta.get("tool_calls", [])
+            for tc in tc_deltas:
+                idx = tc.get("index", 0)
+                if idx not in tool_calls_by_idx:
+                    tool_calls_by_idx[idx] = {
+                        "id": tc.get("id", ""),
+                        "type": "function",
+                        "function": {"name": "", "arguments": ""},
+                    }
+                entry = tool_calls_by_idx[idx]
+                if tc.get("id"):
+                    entry["id"] = tc["id"]
+                fn = tc.get("function", {})
+                if fn.get("name"):
+                    entry["function"]["name"] += fn["name"]
+                if fn.get("arguments"):
+                    entry["function"]["arguments"] += fn["arguments"]
         except json.JSONDecodeError:
             continue
-    print()  # Final newline
-    return "".join(full_content)
+
+    if full_content:
+        print()  # Final newline after streamed content
+
+    tool_calls = None
+    if tool_calls_by_idx:
+        tool_calls = [tool_calls_by_idx[i] for i in sorted(tool_calls_by_idx)]
+        # Print tool calls for visibility
+        for tc in tool_calls:
+            fn = tc["function"]
+            print(f"🔧 Tool call: {fn['name']}({fn['arguments']})", file=sys.stderr)
+
+    return {
+        "content": "".join(full_content),
+        "tool_calls": tool_calls,
+        "usage": {},
+        "finish_reason": finish_reason,
+    }
 
 
-def _extract_response(body: dict) -> str:
-    """Extract content from a non-streaming response."""
+def _extract_response(body: dict) -> dict:
+    """Extract content and tool calls from a non-streaming response."""
     choices = body.get("choices", [])
     if not choices:
-        return "(no response)"
+        return {"content": "(no response)", "tool_calls": None, "usage": {}, "finish_reason": "stop"}
+
     message = choices[0].get("message", {})
-    content = message.get("content", "(empty)")
+    content = message.get("content") or ""
+    tool_calls = message.get("tool_calls")
+    finish_reason = choices[0].get("finish_reason", "stop")
 
     # Show usage if available
     usage = body.get("usage", {})
@@ -427,7 +789,18 @@ def _extract_response(body: dict) -> str:
             file=sys.stderr,
         )
 
-    return content
+    # Print tool calls for visibility
+    if tool_calls:
+        for tc in tool_calls:
+            fn = tc.get("function", {})
+            print(f"🔧 Tool call: {fn.get('name', '?')}({fn.get('arguments', '')})", file=sys.stderr)
+
+    return {
+        "content": content,
+        "tool_calls": tool_calls,
+        "usage": usage,
+        "finish_reason": finish_reason,
+    }
 
 
 # ── List Models ──────────────────────────────────────────────────────────────
@@ -474,6 +847,9 @@ Examples:
   %(prog)s --web-search --prompt "Latest news on AI regulation"
   %(prog)s --uncensored --prompt "Write edgy creative fiction"
   %(prog)s --private-only --prompt "Analyze this confidential data"
+  %(prog)s --conversation history.json --prompt "continue"
+  %(prog)s --tools tools.json --prompt "Get weather in NYC"
+  %(prog)s --budget-status
   %(prog)s --classify "Design a microservices architecture"
   %(prog)s --list-models
   %(prog)s --model deepseek-v3.2 --prompt "Hello"
@@ -496,11 +872,33 @@ Examples:
     parser.add_argument("--character", type=str, default=None, help="Venice character slug for persona-based responses")
     parser.add_argument("--json", "-j", action="store_true", help="Output routing info as JSON")
 
+    # New: conversation-aware routing
+    parser.add_argument("--conversation", type=str, default=None,
+                        help="Path to JSON file with conversation history (array of {role, content} messages)")
+
+    # New: function calling
+    parser.add_argument("--tools", type=str, default=None,
+                        help="Path to JSON file with tool/function definitions (OpenAI tools format)")
+    parser.add_argument("--tool-choice", type=str, default=None,
+                        help='Tool choice: "auto", "none", "required", or {"type":"function","function":{"name":"..."}}'
+                        )
+
+    # New: cost budget
+    parser.add_argument("--budget-status", action="store_true",
+                        help="Show current cost budget usage and exit")
+    parser.add_argument("--session-id", type=str, default=None,
+                        help="Session ID for per-session cost tracking (default: auto-generated)")
+
     args = parser.parse_args()
 
     # ── List models ──────────────────────────────────────────────────────
     if args.list_models:
         list_models()
+        return
+
+    # ── Budget status ────────────────────────────────────────────────────
+    if args.budget_status:
+        show_budget_status(session_id=args.session_id)
         return
 
     # ── Classify only ────────────────────────────────────────────────────
@@ -569,7 +967,46 @@ Examples:
     private_only = args.private_only or os.environ.get("VENICE_PRIVATE_ONLY", "false").lower() == "true"
     web_search = args.web_search or os.environ.get("VENICE_WEB_SEARCH", "false").lower() == "true"
 
-    # Determine model
+    # ── Load conversation history ────────────────────────────────────
+    conversation_messages = []
+    if args.conversation:
+        try:
+            with open(args.conversation, "r") as f:
+                conversation_messages = json.load(f)
+            if not isinstance(conversation_messages, list):
+                print(f"❌ Conversation file must contain a JSON array of messages", file=sys.stderr)
+                sys.exit(1)
+        except (json.JSONDecodeError, FileNotFoundError) as e:
+            print(f"❌ Error reading conversation file: {e}", file=sys.stderr)
+            sys.exit(1)
+
+    # ── Load tool definitions ────────────────────────────────────────
+    tools = None
+    tool_choice = None
+    if args.tools:
+        try:
+            with open(args.tools, "r") as f:
+                tools = json.load(f)
+            if not isinstance(tools, list):
+                print(f"❌ Tools file must contain a JSON array of tool definitions", file=sys.stderr)
+                sys.exit(1)
+        except (json.JSONDecodeError, FileNotFoundError) as e:
+            print(f"❌ Error reading tools file: {e}", file=sys.stderr)
+            sys.exit(1)
+    if args.tool_choice:
+        # Parse tool_choice — could be a string or JSON object
+        tc = args.tool_choice.strip()
+        if tc.startswith("{"):
+            try:
+                tool_choice = json.loads(tc)
+            except json.JSONDecodeError:
+                print(f"❌ Invalid --tool-choice JSON: {tc}", file=sys.stderr)
+                sys.exit(1)
+        else:
+            tool_choice = tc  # "auto", "none", "required"
+
+    # ── Determine model ──────────────────────────────────────────────
+    model_info = None
     if args.model:
         model_id = args.model
         model_name = args.model
@@ -582,11 +1019,35 @@ Examples:
         model_id = model_info["id"]
         model_name = model_info["name"]
     else:
-        tier_name = classify_complexity(args.prompt)
+        # Smart classification — use conversation if available
+        if conversation_messages:
+            # Build full message history including the new prompt
+            classify_msgs = conversation_messages + [{"role": "user", "content": args.prompt}]
+            tier_name = classify_with_conversation(classify_msgs)
+        else:
+            tier_name = classify_complexity(args.prompt)
+
+        # Bump for function calling (tool use needs capable models)
+        if tools:
+            tier_idx = TIER_ORDER.index(tier_name)
+            if tier_idx < 2:  # At least mid for function calling
+                tier_name = "mid"
+                print("  📎 Tier bumped to mid (function calling requires capable models)", file=sys.stderr)
+
         max_tier = os.environ.get("VENICE_MAX_TIER")
         tier_name = get_effective_tier(tier_name, max_tier)
         if prefer_uncensored:
             tier_name = find_tier_with_uncensored(tier_name, max_tier, private_only)
+
+        # Apply budget constraints
+        daily_budget = float(os.environ.get("VENICE_DAILY_BUDGET", "0") or "0")
+        session_budget = float(os.environ.get("VENICE_SESSION_BUDGET", "0") or "0")
+        if daily_budget > 0 or session_budget > 0:
+            budget_tier = get_budget_constrained_tier(tier_name, session_id=args.session_id)
+            if budget_tier != tier_name:
+                print(f"  💰 Tier downgraded {tier_name} → {budget_tier} (budget constraint)", file=sys.stderr)
+                tier_name = budget_tier
+
         model_info = select_model(tier_name, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only)
         model_id = model_info["id"]
         model_name = model_info["name"]
@@ -600,6 +1061,9 @@ Examples:
     messages = []
     if args.system:
         messages.append({"role": "system", "content": args.system})
+    # Include conversation history
+    if conversation_messages:
+        messages.extend(conversation_messages)
     messages.append({"role": "user", "content": args.prompt})
 
     # Route info
@@ -611,11 +1075,15 @@ Examples:
         flags.append("🔓 uncensored")
     if private_only:
         flags.append("🔒 private-only")
+    if tools:
+        flags.append(f"🔧 {len(tools)} tools")
+    if conversation_messages:
+        flags.append(f"💬 {len(conversation_messages)} msgs")
     flag_str = f" [{', '.join(flags)}]" if flags else ""
     print(f"🧡 Venice Router → {emoji.get(tier_name, '⚪')} {tier_name.upper()} → {model_name} ({model_id}){flag_str}", file=sys.stderr)
 
     # Call Venice API
-    response = venice_chat(
+    result = venice_chat(
         api_key=api_key,
         model_id=model_id,
         messages=messages,
@@ -624,10 +1092,36 @@ Examples:
         stream=stream,
         web_search=web_search,
         character_slug=args.character,
+        tools=tools,
+        tool_choice=tool_choice,
     )
 
-    if response and not stream:
-        print(response)
+    # ── Record cost ──────────────────────────────────────────────────
+    if model_info and result.get("usage"):
+        record_cost(
+            model_info=model_info,
+            input_tokens=result["usage"].get("prompt_tokens", 0),
+            output_tokens=result["usage"].get("completion_tokens", 0),
+            tier=tier_name,
+            session_id=args.session_id,
+        )
+
+    # ── Output ───────────────────────────────────────────────────────
+    if result.get("tool_calls"):
+        # Output tool calls as JSON for programmatic consumption
+        if args.json:
+            print(json.dumps({
+                "content": result["content"],
+                "tool_calls": result["tool_calls"],
+                "finish_reason": result["finish_reason"],
+                "usage": result.get("usage", {}),
+            }, indent=2))
+        else:
+            # Tool calls already printed to stderr by _extract_response / _handle_stream
+            if result["content"]:
+                print(result["content"])
+    elif result.get("content") and not stream:
+        print(result["content"])
 
 
 if __name__ == "__main__":
