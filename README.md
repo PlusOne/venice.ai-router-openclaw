@@ -180,6 +180,23 @@ python3 scripts/venice-router.py --tools tools.json --tool-choice required --pro
 # Auto-bumps to mid tier minimum — function calling needs capable models
 ```
 
+### CLI — Thinking / Reasoning Mode
+
+```bash
+# Prefer chain-of-thought reasoning models (Qwen3 235B Thinking, Kimi K2 Thinking, Kimi K2.5)
+python3 scripts/venice-router.py --thinking --prompt "Prove that the square root of 2 is irrational"
+python3 scripts/venice-router.py --thinking --prompt "What is the halting problem and why is it undecidable?"
+python3 scripts/venice-router.py --thinking --tier high --prompt "Find the bug in this recursive algorithm"
+# Auto-bumps to mid tier minimum — thinking models live in mid/high
+# All thinking models are private (zero data retention)
+```
+
+Or set persistently:
+
+```bash
+export VENICE_THINKING=true   # Always use thinking/reasoning models
+```
+
 ### CLI — Cost Budget Management
 
 ```bash
@@ -250,6 +267,7 @@ python3 scripts/venice-router.py --classify "Design a system" --json
 | `VENICE_UNCENSORED` | Always prefer uncensored models | `false` |
 | `VENICE_PRIVATE_ONLY` | Only use private models (zero data retention) | `false` |
 | `VENICE_WEB_SEARCH` | Enable web search by default ($10/1K calls) | `false` |
+| `VENICE_THINKING` | Always prefer thinking/reasoning models | `false` |
 | `VENICE_DAILY_BUDGET` | Max daily spend in USD (0 = unlimited) | `0` |
 | `VENICE_SESSION_BUDGET` | Max per-session spend in USD (0 = unlimited) | `0` |
 
@@ -282,17 +300,18 @@ Use `--prefer-anon` to override this behavior.
 ## CLI Reference
 
 ```
-usage: venice-router.py [-h] [--prompt PROMPT] [--tier {cheap,budget,mid,high,premium}]
+usage: venice-router.py [-h] [--prompt PROMPT]
+                        [--tier {cheap,budget,budget-medium,mid,high,premium}]
                         [--model MODEL] [--classify CLASSIFY] [--list-models]
                         [--stream] [--web-search] [--uncensored] [--private-only]
-                        [--temperature TEMP] [--max-tokens N] [--system SYSTEM]
-                        [--character SLUG] [--prefer-anon] [--json]
+                        [--thinking] [--temperature TEMP] [--max-tokens N]
+                        [--system SYSTEM] [--character SLUG] [--prefer-anon] [--json]
                         [--conversation FILE] [--tools FILE] [--tool-choice CHOICE]
                         [--budget-status] [--session-id ID]
 
 Options:
   --prompt, -p         Prompt to send to Venice.ai
-  --tier, -t           Force a specific tier (cheap|budget|mid|high|premium)
+  --tier, -t           Force a specific tier (cheap|budget|budget-medium|mid|high|premium)
   --model, -m          Force a specific model ID
   --classify, -c       Classify complexity without calling the API
   --list-models, -l    List all model tiers and pricing
@@ -300,6 +319,8 @@ Options:
   --web-search, -w     Enable Venice web search ($10/1K calls)
   --uncensored, -u     Prefer uncensored models (no content filters)
   --private-only       Only use private models (zero data retention)
+  --thinking           Prefer thinking/reasoning models (Qwen3 235B Thinking, Kimi K2/K2.5);
+                       auto-bumps to mid tier minimum; all thinking models are private
   --temperature        Temperature (0.0–2.0)
   --max-tokens         Max output tokens
   --system             System prompt

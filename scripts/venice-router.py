@@ -63,46 +63,60 @@ MODEL_TIERS = {
         ],
         "default": "qwen3-235b-a22b-instruct-2507",
     },
-    "mid": {
-        "description": "Code generation, analysis, longer writing",
+    "budget-medium": {
+        "description": "Moderate-to-complex tasks, code snippets, structured output",
         "models": [
             {"id": "grok-code-fast-1",     "name": "Grok Code Fast",     "input": 0.25,  "output": 1.87,  "ctx": 256000,  "private": False, "uncensored": False},
             {"id": "deepseek-v3.2",        "name": "DeepSeek V3.2",      "input": 0.40,  "output": 1.00,  "ctx": 160000,  "private": True,  "uncensored": False},
             {"id": "minimax-m21",          "name": "MiniMax M2.1",       "input": 0.40,  "output": 1.60,  "ctx": 198000,  "private": True,  "uncensored": False},
-            {"id": "minimax-m25",          "name": "MiniMax M2.5",       "input": 0.40,  "output": 1.60,  "ctx": 198000,  "private": True,  "uncensored": False},
-            {"id": "qwen3-next-80b",       "name": "Qwen 3 Next 80B",   "input": 0.35,  "output": 1.90,  "ctx": 256000,  "private": True,  "uncensored": False},
-            {"id": "mistral-31-24b",       "name": "Venice Medium",      "input": 0.50,  "output": 2.00,  "ctx": 128000,  "private": True,  "uncensored": False},
-            {"id": "llama-3.3-70b",        "name": "Llama 3.3 70B",      "input": 0.70,  "output": 2.80,  "ctx": 128000,  "private": True,  "uncensored": False},
+        ],
+        "default": "deepseek-v3.2",
+    },
+    "mid": {
+        "description": "Code generation, analysis, longer writing, chain-of-thought reasoning",
+        "models": [
+            {"id": "grok-code-fast-1",                    "name": "Grok Code Fast",         "input": 0.25,  "output": 1.87,  "ctx": 256000,  "private": False, "uncensored": False, "thinking": False},
+            {"id": "deepseek-v3.2",                       "name": "DeepSeek V3.2",          "input": 0.40,  "output": 1.00,  "ctx": 160000,  "private": True,  "uncensored": False, "thinking": False},
+            {"id": "minimax-m21",                         "name": "MiniMax M2.1",           "input": 0.40,  "output": 1.60,  "ctx": 198000,  "private": True,  "uncensored": False, "thinking": False},
+            {"id": "minimax-m25",                         "name": "MiniMax M2.5",           "input": 0.40,  "output": 1.60,  "ctx": 198000,  "private": True,  "uncensored": False, "thinking": False},
+            {"id": "qwen3-next-80b",                      "name": "Qwen 3 Next 80B",       "input": 0.35,  "output": 1.90,  "ctx": 256000,  "private": True,  "uncensored": False, "thinking": False},
+            {"id": "qwen3-235b-a22b-thinking-2507",       "name": "Qwen3 235B Thinking",   "input": 0.45,  "output": 3.50,  "ctx": 128000,  "private": True,  "uncensored": False, "thinking": True},
+            {"id": "mistral-31-24b",                      "name": "Venice Medium",          "input": 0.50,  "output": 2.00,  "ctx": 128000,  "private": True,  "uncensored": False, "thinking": False},
+            {"id": "llama-3.3-70b",                       "name": "Llama 3.3 70B",          "input": 0.70,  "output": 2.80,  "ctx": 128000,  "private": True,  "uncensored": False, "thinking": False},
         ],
         "default": "deepseek-v3.2",
     },
     "high": {
-        "description": "Complex reasoning, multi-step tasks, code review",
+        "description": "Complex reasoning, multi-step tasks, code review, function-calling specialists",
         "models": [
-            {"id": "grok-41-fast",         "name": "Grok 4.1 Fast",      "input": 0.50,  "output": 1.25,  "ctx": 256000,  "private": False, "uncensored": False},
-            {"id": "zai-org-glm-4.7",      "name": "GLM 4.7",            "input": 0.55,  "output": 2.65,  "ctx": 198000,  "private": True,  "uncensored": False},
-            {"id": "gemini-3-flash-preview","name": "Gemini 3 Flash",    "input": 0.70,  "output": 3.75,  "ctx": 256000,  "private": False, "uncensored": False},
-            {"id": "kimi-k2-thinking",     "name": "Kimi K2 Thinking",   "input": 0.75,  "output": 3.20,  "ctx": 256000,  "private": True,  "uncensored": False},
-            {"id": "qwen3-coder-480b-a35b-instruct", "name": "Qwen 3 Coder 480B", "input": 0.75, "output": 3.00, "ctx": 256000, "private": True, "uncensored": False},
-            {"id": "zai-org-glm-5",        "name": "GLM 5",              "input": 1.00,  "output": 3.20,  "ctx": 198000,  "private": True,  "uncensored": False},
+            {"id": "grok-41-fast",                         "name": "Grok 4.1 Fast",          "input": 0.50,  "output": 1.25,  "ctx": 256000,  "private": False, "uncensored": False, "thinking": False},
+            {"id": "zai-org-glm-4.7",                      "name": "GLM 4.7",                "input": 0.55,  "output": 2.65,  "ctx": 198000,  "private": True,  "uncensored": False, "thinking": False},
+            {"id": "gemini-3-flash-preview",               "name": "Gemini 3 Flash",         "input": 0.70,  "output": 3.75,  "ctx": 256000,  "private": False, "uncensored": False, "thinking": False},
+            {"id": "kimi-k2-thinking",                    "name": "Kimi K2 Thinking",       "input": 0.75,  "output": 3.20,  "ctx": 256000,  "private": True,  "uncensored": False, "thinking": True},
+            {"id": "kimi-k2-5",                           "name": "Kimi K2.5",              "input": 0.75,  "output": 3.75,  "ctx": 256000,  "private": True,  "uncensored": False, "thinking": True},
+            {"id": "qwen3-coder-480b-a35b-instruct",      "name": "Qwen 3 Coder 480B",     "input": 0.75,  "output": 3.00,  "ctx": 256000,  "private": True,  "uncensored": False, "thinking": False},
+            {"id": "hermes-3-llama-3.1-405b",             "name": "Hermes 3 405B",          "input": 1.10,  "output": 3.00,  "ctx": 128000,  "private": True,  "uncensored": False, "thinking": False},
+            {"id": "zai-org-glm-5",                       "name": "GLM 5",                  "input": 1.00,  "output": 3.20,  "ctx": 198000,  "private": True,  "uncensored": False, "thinking": False},
         ],
-        "default": "deepseek-v3.2" if False else "kimi-k2-thinking",
+        "default": "kimi-k2-thinking",
     },
     "premium": {
-        "description": "Expert-level analysis, architecture, research",
+        "description": "Expert-level analysis, architecture, research, 1M-context tasks",
         "models": [
-            {"id": "openai-gpt-52",        "name": "GPT-5.2",            "input": 2.19,  "output": 17.50, "ctx": 256000,  "private": False, "uncensored": False},
-            {"id": "gemini-3-pro-preview",  "name": "Gemini 3 Pro",      "input": 2.50,  "output": 15.00, "ctx": 198000,  "private": False, "uncensored": False},
-            {"id": "claude-sonnet-4-6",     "name": "Claude Sonnet 4.6", "input": 3.75,  "output": 18.75, "ctx": 1000000, "private": False, "uncensored": False},
-            {"id": "claude-sonnet-45",      "name": "Claude Sonnet 4.5", "input": 3.75,  "output": 18.75, "ctx": 198000,  "private": False, "uncensored": False},
-            {"id": "claude-opus-45",        "name": "Claude Opus 4.5",   "input": 6.00,  "output": 30.00, "ctx": 198000,  "private": False, "uncensored": False},
-            {"id": "claude-opus-4-6",       "name": "Claude Opus 4.6",   "input": 6.00,  "output": 30.00, "ctx": 1000000, "private": False, "uncensored": False},
+            {"id": "openai-gpt-52",         "name": "GPT-5.2",            "input": 2.19,  "output": 17.50, "ctx": 256000,  "private": False, "uncensored": False, "thinking": False},
+            {"id": "openai-gpt-52-codex",   "name": "GPT-5.2 Codex",     "input": 2.19,  "output": 17.50, "ctx": 256000,  "private": False, "uncensored": False, "thinking": False},
+            {"id": "gemini-3-pro-preview",  "name": "Gemini 3 Pro",      "input": 2.50,  "output": 15.00, "ctx": 198000,  "private": False, "uncensored": False, "thinking": False},
+            {"id": "gemini-3-1-pro-preview","name": "Gemini 3.1 Pro",    "input": 2.50,  "output": 15.00, "ctx": 1000000, "private": False, "uncensored": False, "thinking": False},
+            {"id": "claude-sonnet-4-6",     "name": "Claude Sonnet 4.6", "input": 3.75,  "output": 18.75, "ctx": 1000000, "private": False, "uncensored": False, "thinking": False},
+            {"id": "claude-sonnet-45",      "name": "Claude Sonnet 4.5", "input": 3.75,  "output": 18.75, "ctx": 198000,  "private": False, "uncensored": False, "thinking": False},
+            {"id": "claude-opus-45",        "name": "Claude Opus 4.5",   "input": 6.00,  "output": 30.00, "ctx": 198000,  "private": False, "uncensored": False, "thinking": False},
+            {"id": "claude-opus-4-6",       "name": "Claude Opus 4.6",   "input": 6.00,  "output": 30.00, "ctx": 1000000, "private": False, "uncensored": False, "thinking": False},
         ],
         "default": "gemini-3-pro-preview",
     },
 }
 
-TIER_ORDER = ["cheap", "budget", "mid", "high", "premium"]
+TIER_ORDER = ["cheap", "budget", "budget-medium", "mid", "high", "premium"]
 
 # ── Complexity Classifier ────────────────────────────────────────────────────
 
@@ -246,8 +260,10 @@ def classify_complexity(prompt: str) -> str:
         return "premium"
     elif score >= 4:
         return "high"
-    elif score >= 2:
+    elif score >= 3:
         return "mid"
+    elif score >= 2:
+        return "budget-medium"
     elif score >= 1:
         return "budget"
     else:
@@ -291,8 +307,28 @@ def find_tier_with_uncensored(starting_tier: str, max_tier: str | None = None, p
     return starting_tier
 
 
-def select_model(tier: str, prefer_private: bool = True, prefer_uncensored: bool = False, private_only: bool = False) -> dict:
-    """Select the best model from a tier with privacy/uncensored preferences.
+def find_tier_with_thinking(starting_tier: str, max_tier: str | None = None) -> str:
+    """Find the lowest tier at or above starting_tier that has thinking/reasoning models."""
+    start_idx = TIER_ORDER.index(starting_tier)
+    max_idx = TIER_ORDER.index(max_tier) if max_tier and max_tier in TIER_ORDER else len(TIER_ORDER) - 1
+    for i in range(start_idx, max_idx + 1):
+        models = MODEL_TIERS[TIER_ORDER[i]]["models"]
+        if any(m.get("thinking", False) for m in models):
+            return TIER_ORDER[i]
+    # Thinking models start at "mid" — if starting_tier is below mid, default to mid
+    mid_idx = TIER_ORDER.index("mid")
+    if start_idx < mid_idx:
+        return "mid"
+    return starting_tier
+
+
+def select_model(tier: str, prefer_private: bool = True, prefer_uncensored: bool = False, private_only: bool = False, prefer_thinking: bool = False) -> dict:
+    """Select the best model from a tier with privacy/uncensored/thinking preferences.
+
+    Priority when prefer_thinking=True:
+      1. thinking + private models
+      2. thinking models (any)
+      3. fall back to normal selection
 
     Priority when prefer_uncensored=True:
       1. uncensored + private models
@@ -312,6 +348,15 @@ def select_model(tier: str, prefer_private: bool = True, prefer_uncensored: bool
             candidates = models
     else:
         candidates = models
+
+    # Prefer thinking/reasoning models
+    if prefer_thinking:
+        thinking_private = [m for m in candidates if m.get("thinking", False) and m.get("private", False)]
+        if thinking_private:
+            return thinking_private[0]
+        thinking_any = [m for m in candidates if m.get("thinking", False)]
+        if thinking_any:
+            return thinking_any[0]
 
     # Prefer uncensored models
     if prefer_uncensored:
@@ -673,7 +718,7 @@ def venice_chat(
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        "User-Agent": "OpenClaw-VeniceRouter/1.4.1",
+        "User-Agent": "OpenClaw-VeniceRouter/1.5.0",
     }
 
     if stream:
@@ -815,13 +860,14 @@ def list_models():
 
     for tier_name in TIER_ORDER:
         tier = MODEL_TIERS[tier_name]
-        emoji = {"cheap": "💚", "budget": "💙", "mid": "💛", "high": "🧡", "premium": "💎"}
+        emoji = {"cheap": "💚", "budget": "💙", "budget-medium": "🩵", "mid": "💛", "high": "🧡", "premium": "💎"}
         print(f"  {emoji.get(tier_name, '⚪')} {tier_name.upper()} — {tier['description']}")
         print(f"  {'─' * 60}")
 
         for m in tier["models"]:
             privacy = "🔒 private" if m["private"] else "🔀 anon"
             uncensored = " 🔓" if m.get("uncensored", False) else ""
+            thinking_flag = " 🧠" if m.get("thinking", False) else ""
             default_marker = " ⭐" if m["id"] == tier["default"] else ""
             ctx_k = m["ctx"] // 1000
             print(
@@ -829,7 +875,7 @@ def list_models():
             )
             print(
                 f"      ${m['input']:<6.2f} in / ${m['output']:<6.2f} out  "
-                f"| {ctx_k}K ctx | {privacy}{uncensored}{default_marker}"
+                f"| {ctx_k}K ctx | {privacy}{uncensored}{thinking_flag}{default_marker}"
             )
         print()
 
@@ -848,6 +894,7 @@ Examples:
   %(prog)s --web-search --prompt "Latest news on AI regulation"
   %(prog)s --uncensored --prompt "Write edgy creative fiction"
   %(prog)s --private-only --prompt "Analyze this confidential data"
+  %(prog)s --thinking --prompt "Prove the halting problem is undecidable"
   %(prog)s --conversation history.json --prompt "continue"
   %(prog)s --tools tools.json --prompt "Get weather in NYC"
   %(prog)s --budget-status
@@ -872,6 +919,7 @@ Examples:
     parser.add_argument("--web-search", "-w", action="store_true", help="Enable Venice web search ($10/1K calls) — LLM can search & cite sources")
     parser.add_argument("--character", type=str, default=None, help="Venice character slug for persona-based responses")
     parser.add_argument("--json", "-j", action="store_true", help="Output routing info as JSON")
+    parser.add_argument("--thinking", action="store_true", help="Prefer thinking/reasoning models (Qwen3 Thinking, Kimi K2) — auto-bumps to mid tier minimum; ideal for math proofs, logic puzzles, multi-step deduction")
 
     # New: conversation-aware routing
     parser.add_argument("--conversation", type=str, default=None,
@@ -908,12 +956,20 @@ Examples:
         prefer_private = not args.prefer_anon
         prefer_uncensored = args.uncensored or os.environ.get("VENICE_UNCENSORED", "false").lower() == "true"
         private_only = args.private_only or os.environ.get("VENICE_PRIVATE_ONLY", "false").lower() == "true"
-        model = select_model(tier, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only)
+        prefer_thinking = args.thinking or os.environ.get("VENICE_THINKING", "false").lower() == "true"
+        # Apply VENICE_DEFAULT_TIER as a minimum floor tier
+        default_tier = os.environ.get("VENICE_DEFAULT_TIER")
+        if default_tier and default_tier in TIER_ORDER:
+            if TIER_ORDER.index(tier) < TIER_ORDER.index(default_tier):
+                tier = default_tier
+        model = select_model(tier, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only, prefer_thinking=prefer_thinking)
         max_tier = os.environ.get("VENICE_MAX_TIER")
         effective_tier = get_effective_tier(tier, max_tier)
         if prefer_uncensored:
             effective_tier = find_tier_with_uncensored(effective_tier, max_tier, private_only)
-        effective_model = select_model(effective_tier, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only)
+        if prefer_thinking:
+            effective_tier = find_tier_with_thinking(effective_tier, max_tier)
+        effective_model = select_model(effective_tier, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only, prefer_thinking=prefer_thinking)
 
         if args.json:
             result = {
@@ -932,9 +988,11 @@ Examples:
                 result["capped_by_max_tier"] = max_tier
             if args.web_search:
                 result["web_search"] = True
+            if prefer_thinking:
+                result["thinking"] = True
             print(json.dumps(result, indent=2))
         else:
-            emoji = {"cheap": "💚", "budget": "💙", "mid": "💛", "high": "🧡", "premium": "💎"}
+            emoji = {"cheap": "💚", "budget": "💙", "budget-medium": "🩵", "mid": "💛", "high": "🧡", "premium": "💎"}
             print(f"  Complexity:  {emoji.get(effective_tier, '⚪')} {effective_tier.upper()}")
             if max_tier and tier != effective_tier:
                 print(f"  (classified as {tier}, capped to {effective_tier} by VENICE_MAX_TIER)")
@@ -943,6 +1001,7 @@ Examples:
             print(f"  Context:     {effective_model['ctx'] // 1000}K tokens")
             print(f"  Privacy:     {'🔒 private (zero retention)' if effective_model['private'] else '🔀 anonymized (proxied)'}")
             print(f"  Uncensored:  {'🔓 yes' if effective_model.get('uncensored', False) else '🛡️ no'}")
+            print(f"  Thinking:    {'🧠 yes (chain-of-thought reasoning)' if effective_model.get('thinking', False) else '💬 standard'}")
             if args.web_search:
                 print(f"  Web Search:  🌐 enabled ($10/1K calls)")
         return
@@ -967,6 +1026,7 @@ Examples:
     prefer_uncensored = args.uncensored or os.environ.get("VENICE_UNCENSORED", "false").lower() == "true"
     private_only = args.private_only or os.environ.get("VENICE_PRIVATE_ONLY", "false").lower() == "true"
     web_search = args.web_search or os.environ.get("VENICE_WEB_SEARCH", "false").lower() == "true"
+    prefer_thinking = args.thinking or os.environ.get("VENICE_THINKING", "false").lower() == "true"
 
     # ── Load conversation history ────────────────────────────────────
     conversation_messages = []
@@ -1016,7 +1076,9 @@ Examples:
         tier_name = args.tier
         if prefer_uncensored:
             tier_name = find_tier_with_uncensored(tier_name, os.environ.get("VENICE_MAX_TIER"), private_only)
-        model_info = select_model(tier_name, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only)
+        if prefer_thinking:
+            tier_name = find_tier_with_thinking(tier_name, os.environ.get("VENICE_MAX_TIER"))
+        model_info = select_model(tier_name, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only, prefer_thinking=prefer_thinking)
         model_id = model_info["id"]
         model_name = model_info["name"]
     else:
@@ -1028,12 +1090,26 @@ Examples:
         else:
             tier_name = classify_complexity(args.prompt)
 
+        # Apply VENICE_DEFAULT_TIER as a minimum floor tier
+        default_tier = os.environ.get("VENICE_DEFAULT_TIER")
+        if default_tier and default_tier in TIER_ORDER:
+            classified_idx = TIER_ORDER.index(tier_name)
+            default_idx = TIER_ORDER.index(default_tier)
+            if classified_idx < default_idx:
+                tier_name = default_tier
+
         # Bump for function calling (tool use needs capable models)
         if tools:
             tier_idx = TIER_ORDER.index(tier_name)
             if tier_idx < 2:  # At least mid for function calling
                 tier_name = "mid"
                 print("  📎 Tier bumped to mid (function calling requires capable models)", file=sys.stderr)
+
+        # Bump for thinking mode (thinking models start at mid)
+        if prefer_thinking:
+            max_tier = os.environ.get("VENICE_MAX_TIER")
+            tier_name = find_tier_with_thinking(tier_name, max_tier)
+            print(f"  🧠 Thinking mode — routing to {tier_name.upper()} for reasoning models", file=sys.stderr)
 
         max_tier = os.environ.get("VENICE_MAX_TIER")
         tier_name = get_effective_tier(tier_name, max_tier)
@@ -1049,7 +1125,7 @@ Examples:
                 print(f"  💰 Tier downgraded {tier_name} → {budget_tier} (budget constraint)", file=sys.stderr)
                 tier_name = budget_tier
 
-        model_info = select_model(tier_name, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only)
+        model_info = select_model(tier_name, prefer_private=prefer_private, prefer_uncensored=prefer_uncensored, private_only=private_only, prefer_thinking=prefer_thinking)
         model_id = model_info["id"]
         model_name = model_info["name"]
 
@@ -1068,7 +1144,7 @@ Examples:
     messages.append({"role": "user", "content": args.prompt})
 
     # Route info
-    emoji = {"cheap": "💚", "budget": "💙", "mid": "💛", "high": "🧡", "premium": "💎", "custom": "⚙️"}
+    emoji = {"cheap": "💚", "budget": "💙", "budget-medium": "🩵", "mid": "💛", "high": "🧡", "premium": "💎", "custom": "⚙️"}
     flags = []
     if web_search:
         flags.append("🌐 web")
@@ -1076,6 +1152,8 @@ Examples:
         flags.append("🔓 uncensored")
     if private_only:
         flags.append("🔒 private-only")
+    if prefer_thinking:
+        flags.append("🧠 thinking")
     if tools:
         flags.append(f"🔧 {len(tools)} tools")
     if conversation_messages:

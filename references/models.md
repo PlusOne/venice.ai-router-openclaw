@@ -22,33 +22,38 @@
 
 ### Tier: MID ($0.25–$0.70 input)
 
-| Model | ID | Input | Output | Context | Privacy |
-|-------|-----|-------|--------|---------|---------|
-| Grok Code Fast | `grok-code-fast-1` | $0.25 | $1.87 | 256K | Anonymized |
-| DeepSeek V3.2 | `deepseek-v3.2` | $0.40 | $1.00 | 160K | Private |
-| MiniMax M2.1 | `minimax-m21` | $0.40 | $1.60 | 198K | Private |
-| MiniMax M2.5 | `minimax-m25` | $0.40 | $1.60 | 198K | Private |
-| Qwen 3 Next 80B | `qwen3-next-80b` | $0.35 | $1.90 | 256K | Private |
-| Venice Medium | `mistral-31-24b` | $0.50 | $2.00 | 128K | Private |
-| Llama 3.3 70B | `llama-3.3-70b` | $0.70 | $2.80 | 128K | Private |
+| Model | ID | Input | Output | Context | Privacy | Thinking |
+|-------|-----|-------|--------|---------|---------|----------|
+| Grok Code Fast | `grok-code-fast-1` | $0.25 | $1.87 | 256K | Anonymized | |
+| DeepSeek V3.2 | `deepseek-v3.2` | $0.40 | $1.00 | 160K | Private | |
+| MiniMax M2.1 | `minimax-m21` | $0.40 | $1.60 | 198K | Private | |
+| MiniMax M2.5 | `minimax-m25` | $0.40 | $1.60 | 198K | Private | |
+| Qwen 3 Next 80B | `qwen3-next-80b` | $0.35 | $1.90 | 256K | Private | |
+| Qwen3 235B Thinking 🧠 | `qwen3-235b-a22b-thinking-2507` | $0.45 | $3.50 | 128K | Private | ✅ |
+| Venice Medium | `mistral-31-24b` | $0.50 | $2.00 | 128K | Private | |
+| Llama 3.3 70B | `llama-3.3-70b` | $0.70 | $2.80 | 128K | Private | |
 
-### Tier: HIGH ($0.50–$1.00 input)
+### Tier: HIGH ($0.50–$1.10 input)
 
-| Model | ID | Input | Output | Context | Privacy |
-|-------|-----|-------|--------|---------|---------|
-| Grok 4.1 Fast | `grok-41-fast` | $0.50 | $1.25 | 256K | Anonymized |
-| GLM 4.7 | `zai-org-glm-4.7` | $0.55 | $2.65 | 198K | Private |
-| Gemini 3 Flash | `gemini-3-flash-preview` | $0.70 | $3.75 | 256K | Anonymized |
-| Kimi K2 Thinking | `kimi-k2-thinking` | $0.75 | $3.20 | 256K | Private |
-| Qwen 3 Coder 480B | `qwen3-coder-480b-a35b-instruct` | $0.75 | $3.00 | 256K | Private |
-| GLM 5 | `zai-org-glm-5` | $1.00 | $3.20 | 198K | Private |
+| Model | ID | Input | Output | Context | Privacy | Thinking |
+|-------|-----|-------|--------|---------|---------|----------|
+| Grok 4.1 Fast | `grok-41-fast` | $0.50 | $1.25 | 256K | Anonymized | |
+| GLM 4.7 | `zai-org-glm-4.7` | $0.55 | $2.65 | 198K | Private | |
+| Gemini 3 Flash | `gemini-3-flash-preview` | $0.70 | $3.75 | 256K | Anonymized | |
+| Kimi K2 Thinking 🧠 | `kimi-k2-thinking` | $0.75 | $3.20 | 256K | Private | ✅ |
+| Kimi K2.5 🧠 | `kimi-k2-5` | $0.75 | $3.75 | 256K | Private | ✅ |
+| Qwen 3 Coder 480B | `qwen3-coder-480b-a35b-instruct` | $0.75 | $3.00 | 256K | Private | |
+| GLM 5 | `zai-org-glm-5` | $1.00 | $3.20 | 198K | Private | |
+| Hermes 3 405B 🔧 | `hermes-3-llama-3.1-405b` | $1.10 | $3.00 | 128K | Private | |
 
 ### Tier: PREMIUM ($2.19–$6.00 input)
 
 | Model | ID | Input | Output | Context | Privacy |
 |-------|-----|-------|--------|---------|---------|
 | GPT-5.2 | `openai-gpt-52` | $2.19 | $17.50 | 256K | Anonymized |
+| GPT-5.2 Codex 💻 | `openai-gpt-52-codex` | $2.19 | $17.50 | 256K | Anonymized |
 | Gemini 3 Pro | `gemini-3-pro-preview` | $2.50 | $15.00 | 198K | Anonymized |
+| Gemini 3.1 Pro | `gemini-3-1-pro-preview` | $2.50 | $15.00 | 1M | Anonymized |
 | Claude Sonnet 4.6 | `claude-sonnet-4-6` | $3.75 | $18.75 | 1M | Anonymized |
 | Claude Sonnet 4.5 | `claude-sonnet-45` | $3.75 | $18.75 | 198K | Anonymized |
 | Claude Opus 4.5 | `claude-opus-45` | $6.00 | $30.00 | 198K | Anonymized |
@@ -56,13 +61,13 @@
 
 ### Beta / Additional Models
 
-| Model | ID | Input | Output | Context | Privacy |
-|-------|-----|-------|--------|---------|---------|
-| Qwen 3 235B Thinking | `qwen3-235b-a22b-thinking-2507` | $0.45 | $3.50 | 128K | Private |
-| GPT-5.2 Codex | `openai-gpt-52-codex` | $2.19 | $17.50 | 256K | Anonymized |
-| Gemini 3.1 Pro | `gemini-3-1-pro-preview` | $2.50 | $15.00 | 1M | Anonymized |
-| Kimi K2.5 | `kimi-k2-5` | $0.75 | $3.75 | 256K | Private |
-| Hermes 3 405B | `hermes-3-llama-3.1-405b` | $1.10 | $3.00 | 128K | Private |
+| Model | ID | Input | Output | Context | Privacy | Notes |
+|-------|-----|-------|--------|---------|---------|-------|
+| Qwen 3 235B Thinking | `qwen3-235b-a22b-thinking-2507` | $0.45 | $3.50 | 128K | Private | In MID tier |
+| GPT-5.2 Codex | `openai-gpt-52-codex` | $2.19 | $17.50 | 256K | Anonymized | Code specialist |
+| Gemini 3.1 Pro | `gemini-3-1-pro-preview` | $2.50 | $15.00 | 1M | Anonymized | 1M context |
+| Kimi K2.5 | `kimi-k2-5` | $0.75 | $3.75 | 256K | Private | In HIGH tier |
+| Hermes 3 405B | `hermes-3-llama-3.1-405b` | $1.10 | $3.00 | 128K | Private | Tool-use specialist |
 
 ## Cost Comparison
 
